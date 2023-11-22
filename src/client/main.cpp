@@ -80,6 +80,11 @@ int main(int argc, char **argv) {
         close(clientfd);
         exit(-1);
     }
+
+    // 登录成功, 启动接收线程负责接收数据
+    std::thread readTask(readTaskHandler, clientfd);
+    readTask.detach();
+
     // main 用于接收用户输入
     for (;;) {
         // 显示首页页面菜单 登录、注册、退出Ω
@@ -199,14 +204,6 @@ int main(int argc, char **argv) {
                                              << " said: " << js["msg"].get<string>() << endl;
                                     }
                                 }
-                            }
-
-                            static int threadFalgNumber = 0;
-                            if (0 == threadFalgNumber) {
-                                // 登录成功, 启动接收线程负责接收数据, 该线程只启动一次即可
-                                std::thread readTask(readTaskHandler, clientfd);
-                                readTask.detach();
-                                threadFalgNumber++;
                             }
 
                             // 进入聊天主菜单页面
