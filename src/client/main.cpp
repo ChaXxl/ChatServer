@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <semaphore.h>
+#include <atomic>
 
 #include "chatservice.hpp"
 #include "group.hpp"
@@ -31,6 +33,12 @@ vector<User> g_currentUserFriendList;
 
 // 显示当前登录用户的群组列表信息
 vector<Group> g_currentUserGroupList;
+
+// 用于读写线程之前的通信
+sem_t rwsem;
+
+// 记录登录状态
+atomic_bool g_isLoginSuccess{false};
 
 // 显示当前登录成功用户的基本信息
 void showCurrentUserData();
@@ -80,6 +88,9 @@ int main(int argc, char **argv) {
         close(clientfd);
         exit(-1);
     }
+
+   // 初始化读写线程通信用的信号量. 信号量、0表示用于线程、初始为0
+    sem_init(&rwsem, 0, 0);
 
     // 登录成功, 启动接收线程负责接收数据
     std::thread readTask(readTaskHandler, clientfd);
@@ -255,6 +266,7 @@ int main(int argc, char **argv) {
             }
             case 3: // 退出
                 close(clientfd);
+                sem_destroy(&rwsem);
                 exit(0);
 
                 break;
