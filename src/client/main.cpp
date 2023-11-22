@@ -167,24 +167,13 @@ int main(int argc, char **argv) {
                 int len = send(clientfd, request.c_str(), request.length() + 1, 0);
                 if (-1 == len) {
                     cerr << "send register error: " << request << endl;
-                } else {
-                    char buffer[1024] = {0};
-                    len = recv(clientfd, buffer, 1024, 0);
-                    if (-1 == len) {
-                        cerr << "receive register response error" << endl;
-                    } else {
-                        json response = json::parse(buffer);
-                        if (0 != response["errno"].get<int>()) {
-                            cerr << name << " is already exist, register error!" << endl;
-                        } else {
-                            cout << name << " register successfully, userid is " << response["id"]
-                                 << " , do not forget it!" << endl;
-                        }
-                    }
                 }
+
+                sem_wait(&rwsem);   // 等待信号量
 
                 break;
             }
+
             case 3: // 退出
                 close(clientfd);
                 sem_destroy(&rwsem);
@@ -285,6 +274,21 @@ void doLoginResponse(json &response) {
     }
 }
 
+/*
+ * 函数名称:
+ * 函数功能: 处理注册响应消息
+ * 参数:
+ * 返回值: 无
+ * */
+void doRegResponse(json &response) {
+    if (0 != response["errno"].get<int>()) {
+        cerr << "This name is already exist, register error!" << endl;
+    } else {
+        cout << "Register successfully, userid is " << response["id"]
+             << " , do not forget it!" << endl;
+    }
+}
+
 
 /*
  * 函数名称:
@@ -317,6 +321,12 @@ void readTaskHandler(int clientfd) {
         if (LOGIN_MSG_ACK == msgType) {
             // 处理登录响应的业务逻辑
             doLoginResponse(js);
+            sem_post(&rwsem);   // 通知主线程，处理完成
+            continue;
+        }
+        if (REG_MSG_ACK == msgType) {
+            // 处理注册响应的业务逻辑
+            doRegResponse(js);
             sem_post(&rwsem);   // 通知主线程，处理完成
             continue;
         }
